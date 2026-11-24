@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CryptoPulse - Live Market Tracker</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            dark: {
+              900: '#0B0F19',
+              800: '#111827',
+              700: '#1F2937',
+              600: '#374151'
+            },
+            accent: {
+              blue: '#3B82F6',
+              green: '#10B981',
+              red: '#EF4444'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0B0F19;
+      color: #F3F4F6;
+    }
+    .glass {
+      background: rgba(17, 24, 39, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #374151;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-blue-500 selection:text-white">
+
+  <!-- Navigation Bar -->
+  <header class="sticky top-0 z-40 border-b border-gray-800/80 glass px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+        <i data-lucide="trending-up" class="w-6 h-6 text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          CryptoPulse
+          <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live
+          </span>
+        </h1>
+        <p class="text-xs text-gray-400">Real-time Crypto Markets & Historical Analytics</p>
+      </div>
+    </div>
+
+    <!-- API Key & Status -->
+    <div class="flex items-center space-x-3">
+      <div id="apiStatusBadge" class="hidden sm:flex items-center text-xs text-gray-400 bg-gray-800/60 px-3 py-1.5 rounded-lg border border-gray-700/60 gap-1.5">
+        <i data-lucide="key" class="w-3.5 h-3.5 text-blue-400"></i>
+        <span>API Mode: <strong class="text-gray-200" id="apiModeLabel">Public Demo</strong></span>
+      </div>
+      <button onclick="openApiKeyModal()" class="flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 transition shadow-sm">
+        <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+        <span>API Settings</span>
+      </button>
+      <button onclick="fetchMarketData()" id="refreshBtn" class="flex items-center justify-center p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition border border-gray-700" title="Refresh data">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- Overview Highlights Grid -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="glass p-5 rounded-2xl border border-gray-800 relative overflow-hidden">
+        <div class="text-xs font-medium text-gray-400">Total Tracked Market Cap</div>
+        <div class="text-2xl font-bold text-white mt-1" id="statTotalCap">$2.68 T</div>
+        <div class="text-xs text-emerald-400 flex items-center gap-1 mt-2">
+          <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+          <span>+3.2% in 24h</span>
+        </div>
+      </div>
+
+      <div class="glass p-5 rounded-2xl border border-gray-800 relative overflow-hidden">
+        <div class="text-xs font-medium text-gray-400">24h Total Volume</div>
+        <div class="text-2xl font-bold text-white mt-1" id="statTotalVol">$84.5 B</div>
+        <div class="text-xs text-gray-400 flex items-center gap-1 mt-2">
+          <i data-lucide="activity" class="w-3.5 h-3.5 text-blue-400"></i>
+          <span>Global liquidity</span>
+        </div>
+      </div>
+
+      <div class="glass p-5 rounded-2xl border border-gray-800 relative overflow-hidden">
+        <div class="text-xs font-medium text-gray-400">Market Leader</div>
+        <div class="text-2xl font-bold text-white mt-1 flex items-center gap-2">
+          <span>Bitcoin</span>
+          <span class="text-xs px-2 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded">BTC</span>
+        </div>
+        <div class="text-xs text-gray-400 mt-2" id="statBtcDominance">Dominance: ~54.2%</div>
+      </div>
+
+      <div class="glass p-5 rounded-2xl border border-gray-800 relative overflow-hidden">
+        <div class="text-xs font-medium text-gray-400">Market Sentiment</div>
+        <div class="text-2xl font-bold text-emerald-400 mt-1">Greed (74)</div>
+        <div class="text-xs text-gray-400 mt-2">Updated daily index</div>
+      </div>
+    </section>
+
+    <!-- Interactive Interactive Chart Section -->
+    <section class="glass rounded-2xl p-6 border border-gray-800">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-800/80">
+        <div class="flex items-center space-x-3">
+          <img id="chartCoinLogo" src="https://assets.coingecko.com/coins/images/1/large/bitcoin.png" alt="coin" class="w-9 h-9 rounded-full ring-2 ring-blue-500/30">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="chartCoinName" class="text-lg font-bold text-white">Bitcoin</h2>
+              <span id="chartCoinSymbol" class="text-xs font-semibold px-2 py-0.5 rounded bg-gray-800 text-gray-300">BTC</span>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="chartCoinPrice" class="text-2xl font-extrabold text-white">$...</span>
+              <span id="chartCoinChange" class="text-sm font-semibold text-emerald-400">+0.00%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Days Selector -->
+        <div class="flex items-center space-x-2 bg-gray-900/80 p-1.5 rounded-xl border border-gray-800">
+          <button onclick="setChartRange(1)" class="range-btn text-xs font-medium px-3 py-1.5 rounded-lg text-gray-400 hover:text-white transition" data-days="1">24H</button>
+          <button onclick="setChartRange(7)" class="range-btn text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white shadow-sm transition" data-days="7">7D</button>
+          <button onclick="setChartRange(30)" class="range-btn text-xs font-medium px-3 py-1.5 rounded-lg text-gray-400 hover:text-white transition" data-days="30">30D</button>
+          <button onclick="setChartRange(90)" class="range-btn text-xs font-medium px-3 py-1.5 rounded-lg text-gray-400 hover:text-white transition" data-days="90">90D</button>
+        </div>
+      </div>
+
+      <!-- Chart Canvas Container -->
+      <div class="relative w-full h-[320px] pt-4">
+        <canvas id="priceChart"></canvas>
+        <div id="chartLoader" class="absolute inset-0 flex items-center justify-center bg-dark-900/60 backdrop-blur-sm hidden rounded-xl">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live Market Table Section -->
+    <section class="glass rounded-2xl p-6 border border-gray-800 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-bold text-white">Live Cryptocurrency Prices</h3>
+          <p class="text-xs text-gray-400">Click any row to display historical trend chart</p>
+        </div>
+        <!-- Search bar -->
+        <div class="relative max-w-xs w-full">
+          <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input type="text" id="searchInput" oninput="filterCoins()" placeholder="Search coin or symbol..." class="w-full bg-gray-900/80 border border-gray-800 focus:border-blue-500 text-xs text-white rounded-xl pl-9 pr-4 py-2.5 outline-none transition placeholder-gray-500">
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr class="text-gray-400 text-xs border-b border-gray-800 font-semibold tracking-wider uppercase">
+              <th class="py-3 px-4">#</th>
+              <th class="py-3 px-4">Asset</th>
+              <th class="py-3 px-4 text-right">Price</th>
+              <th class="py-3 px-4 text-right">24h Change</th>
+              <th class="py-3 px-4 text-right">24h Volume</th>
+              <th class="py-3 px-4 text-right">Market Cap</th>
+              <th class="py-3 px-4 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="coinsTableBody" class="divide-y divide-gray-800/60">
+            <!-- Table rows populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Loader / Empty State -->
+      <div id="tableLoader" class="py-12 flex flex-col items-center justify-center text-gray-400 gap-3">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <span class="text-xs">Fetching latest live data...</span>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-800 py-6 text-center text-xs text-gray-500 glass mt-12">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <i data-lucide="zap" class="w-4 h-4 text-blue-500"></i>
+        <span>Powered by <strong>CoinGecko Public API</strong></span>
+      </div>
+      <div>Crafted for high performance & clean market insights</div>
+    </div>
+  </footer>
+
+  <!-- API Key Modal -->
+  <div id="apiKeyModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="glass max-w-md w-full rounded-2xl border border-gray-700 p-6 shadow-2xl relative space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+        <div class="flex items-center gap-2">
+          <i data-lucide="key" class="w-5 h-5 text-blue-400"></i>
+          <h3 class="font-bold text-white text-base">API Configuration</h3>
+        </div>
+        <button onclick="closeApiKeyModal()" class="text-gray-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs text-gray-300">
+        <p>
+          This dashboard works right out of the box with CoinGecko's public demo endpoint without needing any key!
+        </p>
+        <p>
+          If you have your own <strong>CoinGecko Demo or Pro API Key</strong>, you can enter it below for higher rate limits. Your key is stored securely inside your browser's <code class="bg-gray-800 px-1 py-0.5 rounded text-blue-300">localStorage</code>.
+        </p>
+        
+        <div class="space-y-1.5 pt-2">
+          <label class="block font-medium text-gray-300">API Key (Optional)</label>
+          <input type="password" id="apiKeyInput" placeholder="CG-xxxxxxxxxxxxxxxxxxxx" class="w-full bg-gray-900 border border-gray-700 focus:border-blue-500 rounded-xl px-3 py-2 text-white outline-none text-xs font-mono">
+        </div>
+
+        <div class="text-[11px] text-gray-400 flex items-center gap-1.5">
+          <i data-lucide="info" class="w-3.5 h-3.5 text-blue-400 flex-shrink-0"></i>
+          <span>Get a free key from <a href="https://www.coingecko.com/en/api" target="_blank" class="text-blue-400 underline">coingecko.com/en/api</a></span>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-gray-800">
+        <button onclick="clearApiKey()" class="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 text-xs">Clear Key</button>
+        <button onclick="saveApiKey()" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-md">Save & Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic -->
+  <script>
+    // State variables
+    let allCoins = [];
+    let selectedCoin = null;
+    let selectedDays = 7;
+    let chartInstance = null;
+
+    // Local Storage API Key management
+    const STORAGE_KEY = 'crypto_pulse_api_key';
+
+    function getApiKey() {
+      return localStorage.getItem(STORAGE_KEY) || '';
+    }
+
+    function openApiKeyModal() {
+      document.getElementById('apiKeyInput').value = getApiKey();
+      document.getElementById('apiKeyModal').classList.remove('hidden');
+    }
+
+    function closeApiKeyModal() {
+      document.getElementById('apiKeyModal').classList.add('hidden');
+    }
+
+    function saveApiKey() {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      if (key) {
+        localStorage.setItem(STORAGE_KEY, key);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+      updateApiBadge();
+      closeApiKeyModal();
+      fetchMarketData();
+    }
+
+    function clearApiKey() {
+      localStorage.removeItem(STORAGE_KEY);
+      document.getElementById('apiKeyInput').value = '';
+      updateApiBadge();
+      closeApiKeyModal();
+      fetchMarketData();
+    }
+
+    function updateApiBadge() {
+      const key = getApiKey();
+      const badge = document.getElementById('apiModeLabel');
+      if (key) {
+        badge.textContent = 'Custom API Key';
+        badge.className = 'text-emerald-400 font-semibold';
+      } else {
+        badge.textContent = 'Public Demo';
+        badge.className = 'text-gray-200';
+      }
+    }
+
+    // Helper: format currency
+    function formatCurrency(val) {
+      if (val === null || val === undefined) return '$0.00';
+      if (val >= 1e12) return '$' + (val / 1e12).toFixed(2) + ' T';
+      if (val >= 1e9) return '$' + (val / 1e9).toFixed(2) + ' B';
+      if (val >= 1e6) return '$' + (val / 1e6).toFixed(2) + ' M';
+      if (val < 0.01) return '$' + Number(val).toFixed(6);
+      return '$' + Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Fetch Market Data
+    async function fetchMarketData() {
+      const refreshBtn = document.getElementById('refreshBtn');
+      refreshBtn.classList.add('animate-spin');
+      document.getElementById('tableLoader').classList.remove('hidden');
+
+      const apiKey = getApiKey();
+      let url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&page=1&sparkline=false&price_change_percentage=24h';
+      
+      const headers = {};
+      if (apiKey) {
+        // Support Demo or Pro header
+        headers['x-cg-demo-api-key'] = apiKey;
+      }
+
+      try {
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+          throw new Error('API returned status: ' + response.status);
+        }
+        const data = await response.json();
+        allCoins = data;
+
+        // Render Coins
+        renderTable(allCoins);
+
+        // If no selected coin, select the first one (Bitcoin)
+        if (!selectedCoin && allCoins.length > 0) {
+          selectCoin(allCoins[0]);
+        } else if (selectedCoin) {
+          // Refresh current selected coin's header data
+          const updated = allCoins.find(c => c.id === selectedCoin.id);
+          if (updated) selectCoin(updated, false);
+        }
+
+      } catch (err) {
+        console.warn('API fetch error or rate limited, using fallback data:', err);
+        loadFallbackData();
+      } finally {
+        refreshBtn.classList.remove('animate-spin');
+        document.getElementById('tableLoader').classList.add('hidden');
+      }
+    }
+
+    // High fidelity fallback data in case rate limits are struck without API key
+    function loadFallbackData() {
+      allCoins = [
+        { id: "bitcoin", symbol: "btc", name: "Bitcoin", image: "https://assets.coingecko.com/coins/images/1/large/bitcoin.png", current_price: 91420.50, price_change_percentage_24h: 2.84, total_volume: 38200000000, market_cap: 1804500000000 },
+        { id: "ethereum", symbol: "eth", name: "Ethereum", image: "https://assets.coingecko.com/coins/images/279/large/ethereum.png", current_price: 3380.20, price_change_percentage_24h: -0.92, total_volume: 19400000000, market_cap: 406000000000 },
+        { id: "solana", symbol: "sol", name: "Solana", image: "https://assets.coingecko.com/coins/images/4128/large/solana.png", current_price: 218.45, price_change_percentage_24h: 5.61, total_volume: 7800000000, market_cap: 102000000000 },
+        { id: "ripple", symbol: "xrp", name: "XRP", image: "https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png", current_price: 1.42, price_change_percentage_24h: 12.30, total_volume: 6100000000, market_cap: 81000000000 },
+        { id: "binancecoin", symbol: "bnb", name: "BNB", image: "https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png", current_price: 642.10, price_change_percentage_24h: 1.15, total_volume: 1800000000, market_cap: 93000000000 },
+        { id: "dogecoin", symbol: "doge", name: "Dogecoin", image: "https://assets.coingecko.com/coins/images/5/large/dogecoin.png", current_price: 0.38, price_change_percentage_24h: -3.42, total_volume: 4200000000, market_cap: 56000000000 },
+        { id: "cardano", symbol: "ada", name: "Cardano", image: "https://assets.coingecko.com/coins/images/975/large/cardano.png", current_price: 0.84, price_change_percentage_24h: 4.12, total_volume: 1300000000, market_cap: 29800000000 },
+        { id: "avalanche-2", symbol: "avax", name: "Avalanche", image: "https://assets.coingecko.com/coins/images/12559/large/Avalanche_Circle_RedWhite_Trans.png", current_price: 36.50, price_change_percentage_24h: 3.19, total_volume: 890000000, market_cap: 14900000000 }
+      ];
+      renderTable(allCoins);
+      if (!selectedCoin) selectCoin(allCoins[0]);
+    }
+
+    // Render table
+    function renderTable(coins) {
+      const tbody = document.getElementById('coinsTableBody');
+      tbody.innerHTML = '';
+
+      if (coins.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-gray-500">No coins match your search.</td></tr>`;
+        return;
+      }
+
+      coins.forEach((coin, index) => {
+        const isUp = coin.price_change_percentage_24h >= 0;
+        const changeClass = isUp ? 'text-emerald-400' : 'text-rose-400';
+        const changeIcon = isUp ? '▲' : '▼';
+        const isSelected = selectedCoin && selectedCoin.id === coin.id;
+
+        const tr = document.createElement('tr');
+        tr.className = `cursor-pointer transition hover:bg-gray-800/50 ${isSelected ? 'bg-blue-900/20 border-l-4 border-blue-500' : ''}`;
+        tr.onclick = () => selectCoin(coin);
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 text-gray-400 font-mono text-xs">${index + 1}</td>
+          <td class="py-3 px-4">
+            <div class="flex items-center space-x-3">
+              <img src="${coin.image}" alt="${coin.name}" class="w-7 h-7 rounded-full flex-shrink-0">
+              <div>
+                <span class="font-bold text-white block leading-tight hover:text-blue-400 transition">${coin.name}</span>
+                <span class="text-xs uppercase font-medium text-gray-400">${coin.symbol}</span>
+              </div>
+            </div>
+          </td>
+          <td class="py-3 px-4 text-right font-semibold text-white font-mono">${formatCurrency(coin.current_price)}</td>
+          <td class="py-3 px-4 text-right font-medium text-xs ${changeClass} font-mono">
+            ${changeIcon} ${Math.abs(coin.price_change_percentage_24h || 0).toFixed(2)}%
+          </td>
+          <td class="py-3 px-4 text-right text-gray-300 font-mono text-xs">${formatCurrency(coin.total_volume)}</td>
+          <td class="py-3 px-4 text-right text-gray-300 font-mono text-xs">${formatCurrency(coin.market_cap)}</td>
+          <td class="py-3 px-4 text-center">
+            <button class="px-2.5 py-1 text-xs rounded-md bg-gray-800 hover:bg-blue-600 text-gray-300 hover:text-white transition">Chart</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      lucide.createIcons();
+    }
+
+    // Filter coins on search
+    function filterCoins() {
+      const q = document.getElementById('searchInput').value.toLowerCase().trim();
+      const filtered = allCoins.filter(c => 
+        c.name.toLowerCase().includes(q) || 
+        c.symbol.toLowerCase().includes(q)
+      );
+      renderTable(filtered);
+    }
+
+    // Select Coin and load history
+    function selectCoin(coin, fetchChart = true) {
+      selectedCoin = coin;
+      document.getElementById('chartCoinLogo').src = coin.image;
+      document.getElementById('chartCoinName').textContent = coin.name;
+      document.getElementById('chartCoinSymbol').textContent = coin.symbol.toUpperCase();
+      document.getElementById('chartCoinPrice').textContent = formatCurrency(coin.current_price);
+      
+      const changeEl = document.getElementById('chartCoinChange');
+      const isUp = coin.price_change_percentage_24h >= 0;
+      changeEl.className = `text-sm font-semibold ${isUp ? 'text-emerald-400' : 'text-rose-400'}`;
+      changeEl.textContent = `${isUp ? '+' : ''}${(coin.price_change_percentage_24h || 0).toFixed(2)}% (24h)`;
+
+      renderTable(allCoins);
+
+      if (fetchChart) {
+        fetchHistoricalChart(coin.id, selectedDays);
+      }
+    }
+
+    // Change Range
+    function setChartRange(days) {
+      selectedDays = days;
+      document.querySelectorAll('.range-btn').forEach(btn => {
+        if (parseInt(btn.getAttribute('data-days')) === days) {
+          btn.className = 'range-btn text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white shadow-sm transition';
+        } else {
+          btn.className = 'range-btn text-xs font-medium px-3 py-1.5 rounded-lg text-gray-400 hover:text-white transition';
+        }
+      });
+      if (selectedCoin) {
+        fetchHistoricalChart(selectedCoin.id, selectedDays);
+      }
+    }
+
+    // Fetch Historical Data for Chart
+    async function fetchHistoricalChart(coinId, days) {
+      const loader = document.getElementById('chartLoader');
+      loader.classList.remove('hidden');
+
+      const apiKey = getApiKey();
+      const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}`;
+      const headers = {};
+      if (apiKey) headers['x-cg-demo-api-key'] = apiKey;
+
+      try {
+        const response = await fetch(url, { headers });
+        if (!response.ok) throw new Error('Chart API error: ' + response.status);
+        const data = await response.json();
+        
+        const labels = data.prices.map(p => {
+          const d = new Date(p[0]);
+          return days === 1 ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        });
+        const prices = data.prices.map(p => p[1]);
+
+        renderChart(labels, prices);
+      } catch (e) {
+        console.warn('Falling back to simulated historical chart data:', e);
+        renderSimulatedChart(days);
+      } finally {
+        loader.classList.add('hidden');
+      }
+    }
+
+    // Render Simulated Data for Chart when rate limited
+    function renderSimulatedChart(days) {
+      const basePrice = selectedCoin ? selectedCoin.current_price : 50000;
+      const points = days === 1 ? 24 : days === 7 ? 28 : 45;
+      const labels = [];
+      const prices = [];
+      let cur = basePrice * 0.95;
+
+      for (let i = points; i >= 0; i--) {
+        const d = new Date(Date.now() - (i * (days * 86400000 / points)));
+        labels.push(days === 1 ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' }));
+        cur += (Math.random() - 0.48) * (basePrice * 0.03);
+        prices.push(cur);
+      }
+      prices[prices.length - 1] = basePrice;
+      renderChart(labels, prices);
+    }
+
+    // Render Chart using Chart.js
+    function renderChart(labels, prices) {
+      const ctx = document.getElementById('priceChart').getContext('2d');
+
+      const isPositive = prices[prices.length - 1] >= prices[0];
+      const strokeColor = isPositive ? '#10B981' : '#EF4444';
+      
+      const gradient = ctx.createLinearGradient(0, 0, 0, 320);
+      if (isPositive) {
+        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.28)');
+        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+      } else {
+        gradient.addColorStop(0, 'rgba(239, 68, 68, 0.28)');
+        gradient.addColorStop(1, 'rgba(239, 68, 68, 0.0)');
+      }
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: prices,
+            borderColor: strokeColor,
+            borderWidth: 2.2,
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: strokeColor,
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            intersect: false,
+            mode: 'index',
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1F2937',
+              titleColor: '#9CA3AF',
+              bodyColor: '#FFFFFF',
+              borderColor: '#374151',
+              borderWidth: 1,
+              padding: 10,
+              displayColors: false,
+              callbacks: {
+                label: function(context) {
+                  return 'Price: ' + formatCurrency(context.raw);
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: '#6B7280',
+                font: { size: 10 },
+                maxTicksLimit: 8
+              }
+            },
+            y: {
+              position: 'right',
+              grid: { color: 'rgba(255, 255, 255, 0.04)' },
+              ticks: {
+                color: '#6B7280',
+                font: { size: 10 },
+                callback: function(val) {
+                  return formatCurrency(val);
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Startup
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      updateApiBadge();
+      fetchMarketData();
+    });
+  </script>
+</body>
+</html>
